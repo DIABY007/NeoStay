@@ -382,9 +382,7 @@ export function BookingCatalog({ hotelSlug, roomTypes }: Props) {
     }));
 
     if (result.whatsappUrl) {
-      window.setTimeout(() => {
-        window.location.href = result.whatsappUrl;
-      }, 350);
+      window.location.assign(result.whatsappUrl);
     }
   }
 

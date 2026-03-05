@@ -298,7 +298,7 @@ export async function POST(request: Request, { params }: Params) {
         ? `Horaire (${bookingHourlyHours}h)`
         : "Nuit";
   const whatsappText = [
-    "Bonjour, je viens de faire une demande de reservation NeoStay.",
+    `Bonjour, je m'appelle ${guestName} et j'ai fait une reservation sur NeoStay.`,
     `Reference: ${booking.id}`,
     `Hotel: ${hotel.name}`,
     `Chambre: ${roomTypeName}`,
