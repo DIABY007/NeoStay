@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm install && npm install --prefix neostay-web",
-  "buildCommand": "npm run build --prefix neostay-web",
+  "buildCommand": "npm run build --prefix neostay-web && rm -rf .next && cp -R neostay-web/.next .next",
   "devCommand": "npm run dev --prefix neostay-web"
 }
