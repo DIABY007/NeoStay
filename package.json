@@ -1,6 +1,11 @@
 {
   "name": "neostay-root",
   "private": true,
+  "dependencies": {
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
   "scripts": {
     "dev": "npm run dev --prefix neostay-web",
     "build": "npm run build --prefix neostay-web",
