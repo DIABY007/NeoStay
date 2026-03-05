@@ -16,8 +16,50 @@ const ALLOWED_LOGO_TYPES = new Set([
   "image/svg+xml",
 ]);
 
+export const runtime = "nodejs";
+
 function getLogoBucketName() {
   return process.env.SUPABASE_HOTEL_LOGOS_BUCKET || "hotel-logos";
+}
+
+async function ensureLogoBucketReady(
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
+  bucketName: string,
+) {
+  const allowedMimeTypes = Array.from(ALLOWED_LOGO_TYPES);
+
+  const { error: createError } = await supabase.storage.createBucket(bucketName, {
+    public: true,
+    fileSizeLimit: MAX_LOGO_SIZE_BYTES,
+    allowedMimeTypes,
+  });
+
+  if (createError) {
+    const message = createError.message.toLowerCase();
+    const alreadyExists = message.includes("already exists") || message.includes("duplicate");
+
+    if (!alreadyExists) {
+      return {
+        ok: false as const,
+        error: `Initialisation bucket logo impossible: ${createError.message}`,
+      };
+    }
+  }
+
+  const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+    public: true,
+    fileSizeLimit: MAX_LOGO_SIZE_BYTES,
+    allowedMimeTypes,
+  });
+
+  if (updateError) {
+    return {
+      ok: false as const,
+      error: `Configuration bucket logo impossible: ${updateError.message}`,
+    };
+  }
+
+  return { ok: true as const };
 }
 
 function extractObjectPathFromPublicUrl(publicUrl: string, bucketName: string) {
@@ -67,6 +109,11 @@ export async function POST(request: Request, { params }: Params) {
 
   const supabase = createSupabaseServiceRoleClient();
   const bucketName = getLogoBucketName();
+  const bucketReady = await ensureLogoBucketReady(supabase, bucketName);
+
+  if (!bucketReady.ok) {
+    return NextResponse.json({ success: false, error: bucketReady.error }, { status: 500 });
+  }
 
   const { data: currentHotel, error: currentHotelError } = await supabase
     .from("hotels")

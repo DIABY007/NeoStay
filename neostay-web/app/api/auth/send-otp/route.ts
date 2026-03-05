@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "Code OTP envoyé sur WhatsApp",
+      phone,
     });
 
     response.cookies.set(OTP_STATE_COOKIE, otpToken, {

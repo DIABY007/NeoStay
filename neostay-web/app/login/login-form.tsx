@@ -45,7 +45,12 @@ export function LoginForm() {
         throw new Error(data.error || "Erreur lors de l'envoi OTP");
       }
 
-      setPhone(formatBurkinaPhone(fullPhone));
+      const sentPhone =
+        typeof data.phone === "string" && data.phone.length > 0
+          ? data.phone
+          : fullPhone;
+
+      setPhone(formatBurkinaPhone(sentPhone));
       setStep("otp");
       setStatus("OTP envoye. Saisissez le code recu sur WhatsApp.");
     } catch (error) {

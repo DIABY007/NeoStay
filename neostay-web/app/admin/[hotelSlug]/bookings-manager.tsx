@@ -23,6 +23,16 @@ type Booking = {
   room_types: { name: string } | null;
 };
 
+type BookingDetailsResponse = {
+  success: boolean;
+  error?: string;
+  proofError?: string;
+  booking?: Booking;
+  proofSignedUrl?: string | null;
+  proofFileName?: string | null;
+  proofContentType?: string | null;
+};
+
 type Props = {
   hotelSlug: string;
 };
@@ -41,6 +51,13 @@ export function BookingsManager({ hotelSlug }: Props) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
+  const [viewingBookingId, setViewingBookingId] = useState<string | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [proofSignedUrl, setProofSignedUrl] = useState<string | null>(null);
+  const [proofFileName, setProofFileName] = useState<string | null>(null);
+  const [proofContentType, setProofContentType] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   function formulaLabel(formula: Booking["booking_formula"], bookedHours: number | null, bookedDays: number | null) {
     if (formula === "day") {
@@ -106,6 +123,46 @@ export function BookingsManager({ hotelSlug }: Props) {
       window.location.href = result.whatsappUrl;
     }
     await loadBookings();
+  }
+
+  async function openBookingDetails(bookingId: string) {
+    setViewingBookingId(bookingId);
+    setDetailsLoading(true);
+    setDetailsError(null);
+
+    const fallbackBooking = bookings.find((booking) => booking.id === bookingId) ?? null;
+    setSelectedBooking(fallbackBooking);
+
+    const response = await fetch(`/api/admin/hotels/${hotelSlug}/bookings/${bookingId}/proof`, {
+      cache: "no-store",
+    });
+    const result = (await response.json()) as BookingDetailsResponse;
+
+    setDetailsLoading(false);
+
+    if (!response.ok || !result.success) {
+      setDetailsError(result.error ?? "Impossible de charger les details de reservation.");
+      setProofSignedUrl(null);
+      setProofFileName(null);
+      setProofContentType(null);
+      return;
+    }
+
+    setSelectedBooking(result.booking ?? fallbackBooking);
+    setProofSignedUrl(result.proofSignedUrl ?? null);
+    setProofFileName(result.proofFileName ?? null);
+    setProofContentType(result.proofContentType ?? null);
+    setDetailsError(result.proofError ?? null);
+  }
+
+  function closeBookingDetails() {
+    setViewingBookingId(null);
+    setDetailsLoading(false);
+    setDetailsError(null);
+    setProofSignedUrl(null);
+    setProofFileName(null);
+    setProofContentType(null);
+    setSelectedBooking(null);
   }
 
   const counts = useMemo(() => {
@@ -204,6 +261,16 @@ export function BookingsManager({ hotelSlug }: Props) {
 
                     <button
                       type="button"
+                      className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                      onClick={() => {
+                        void openBookingDetails(booking.id);
+                      }}
+                    >
+                      Voir
+                    </button>
+
+                    <button
+                      type="button"
                       className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                       disabled={!canUpdate || isBusy}
                       onClick={() => {
@@ -234,6 +301,112 @@ export function BookingsManager({ hotelSlug }: Props) {
             );
           })}
         </ul>
+      )}
+
+      {viewingBookingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-900">Details de la reservation</h3>
+              <button
+                type="button"
+                onClick={closeBookingDetails}
+                className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Fermer
+              </button>
+            </div>
+
+            {detailsLoading ? (
+              <p className="mt-4 text-sm text-slate-600">Chargement des details...</p>
+            ) : selectedBooking ? (
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
+                  <p>
+                    <span className="font-semibold text-slate-900">Reservation:</span> {selectedBooking.id}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Statut:</span> {selectedBooking.status}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Client:</span> {selectedBooking.guest_name}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Telephone:</span>{" "}
+                    {formatBurkinaPhone(selectedBooking.guest_phone)}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Chambre:</span>{" "}
+                    {selectedBooking.room_types?.name ?? "Chambre"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Formule:</span>{" "}
+                    {formulaLabel(
+                      selectedBooking.booking_formula,
+                      selectedBooking.booked_hours,
+                      selectedBooking.booked_days,
+                    )}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Check-in:</span> {selectedBooking.check_in_date}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">Check-out:</span> {selectedBooking.check_out_date}
+                  </p>
+                </div>
+
+                {selectedBooking.special_request && (
+                  <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    <span className="font-semibold text-slate-900">Demande speciale:</span> {selectedBooking.special_request}
+                  </p>
+                )}
+
+                <section className="rounded-lg border border-slate-200 p-4">
+                  <h4 className="text-sm font-semibold text-slate-900">Preuve de paiement</h4>
+
+                  {!selectedBooking.payment_proof_path ? (
+                    <p className="mt-2 text-sm text-slate-600">Aucune preuve envoyee par le client.</p>
+                  ) : proofSignedUrl && (proofContentType?.startsWith("image/") || !proofContentType) ? (
+                    <div className="mt-3 space-y-3">
+                      <img
+                        src={proofSignedUrl}
+                        alt={`Preuve ${selectedBooking.id}`}
+                        className="max-h-[60vh] w-full rounded-md border border-slate-200 object-contain"
+                      />
+                      <a
+                        href={proofSignedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        Ouvrir en plein ecran
+                      </a>
+                    </div>
+                  ) : proofSignedUrl ? (
+                    <div className="mt-3">
+                      <a
+                        href={proofSignedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block rounded-md border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                      >
+                        Ouvrir le document {proofFileName ? `(${proofFileName})` : ""}
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-rose-700">
+                      La preuve existe mais n'est pas accessible pour le moment.
+                    </p>
+                  )}
+                </section>
+
+                {detailsError && <p className="text-sm text-rose-700">{detailsError}</p>}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-rose-700">Details indisponibles pour cette reservation.</p>
+            )}
+          </div>
+        </div>
       )}
 
       {status && <p className="mt-4 text-sm text-slate-700">{status}</p>}
