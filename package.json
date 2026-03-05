@@ -1,5 +1,10 @@
 {
-  "dependencies": {
-    "sharp": "^0.34.5"
+  "name": "neostay-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix neostay-web",
+    "build": "npm run build --prefix neostay-web",
+    "start": "npm run start --prefix neostay-web",
+    "lint": "npm run lint --prefix neostay-web"
   }
 }
